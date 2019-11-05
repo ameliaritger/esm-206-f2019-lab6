@@ -1,0 +1,203 @@
+---
+title: "Lab 6 loops and functions"
+author: "Amelia Ritger"
+date: "11/5/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Why functions?
+
+- They make it easy to do a task over and over without copy-and-pastng the code.
+- You can take a complicated piece of code and give it a useful descriptive name.
+
+## Making a basic function
+
+Make a function to take a number and add 1
+```{r}
+add_one <- function(x) {
+  y <- x+1
+}
+
+z <- add_one(x=4)
+zz <- add_one(3:7)
+```
+
+```{r}
+add_some <- function(x,a=1) {
+  y <- x+a
+  print("yay!")
+  return(y)
+}
+
+add_some(x=4)
+```
+
+## Make a useful function!
+
+A good practice is to use verb names for your functions.
+
+Let's make a function to calculate the mean of a vector of values. First let's create a test vector of values we can use for testing. We'll use `rnorm()` to generate a pseudo-random set of numbers as a working sample, with a known mean and sd.
+```{r}
+set.seed(12345)
+#'12345' can be any number, but as long as we use the same number, we should get the same sample
+#because with set.seed() you are telling R where to start along a sequence of set "random" numbers (aka pseudo-random)
+#set.seed() for perfect reproducibility of your results
+test_vec <- rnorm(n=100, mean=1, sd=1)
+head(test_vec)
+mean(test_vec)
+sd(test_vec)
+
+calc_mean <- function(x) {
+  n <- length(x)
+  my_mean <- sum(x)/n
+  return(my_mean)
+}
+
+calc_mean
+calc_mean(test_vec) #woot. same as mean(test_vec) value
+```
+
+## Anatomy of a function:
+
+- `function()` is a function that defines functions
+- Inside the arguments for `function(...)` are the information we need to give the function for it do to its job.
+- After the arguments, inside the {}, we put the code that defines what the function does.
+- At the end, the `return()` gives back to the user the desired output of the function.
+
+## Environments
+
+Most of the time we're working in the Global Environment.
+
+When you execute a function, R starts a new independent environment, like a pocket universe, separate from the global environment. The arguments (in this case, x) allow a window through which we can pass information to that new enviornemnt; the return() is a window to  pass information back.
+```{r}
+x <- 100
+y <- 200
+z <- add_one(x=8)
+```
+
+Note that changes in variables inside the function are NOT communicated back to the gobal environment. That's a good thing!
+
+A well-writen function should communicate with the global environment only through arguments and return values.
+
+One you're done running a function, that new enviornment returns its value then disappears forever.
+
+## Improving our basic function
+
+A well-written function should anticipate whhen the user might have imperfect data. Error checks or additional arguments can be helpful. When might our calc_mean() function break down?
+```{r}
+calc_mean(1:10)
+calc_mean(x=1:10)
+calc_mean(x=c(1,2,3,4,NA)) #whenever an NA is present the function breaks
+```
+
+## Let's create a test vector with some NAs
+
+Also, let's learn abuot indexing to access specific elements in a vector. Use "index" numbers to tell which elements of the vector to change. 
+```{r}
+test_vec_w_NA <- test_vec #just to make a copy
+test_vec_w_NA[5] <- NA #make element #5 an NA
+test_vec_w_NA[10:15] <- NA #likewise...
+test_vec_w_NA[c(20,22,24)] <- NA 
+```
+
+What do we need to do to make our function work with NAs?
+
+- Design in an na.rm argument to allow the user to decide whether to exclude NAs.
+- Design in a way to exclude NAs if the user asks.
+
+### Another quick thing with vectors:
+
+How to exclude NAs?
+```{r}
+z <- c(1:5, NA)
+is.na(z)
+zz <- z[!is.na(z)]
+
+calc_mean2 <- function(x_vec, na.rm=TRUE) {
+  if(na.rm==TRUE) { #double equal sign is a logical test, single equal sign is an assignnment
+    x_vec <- x_vec[!is.na(x_vec)]
+  }
+  n <- length(x_vec) # make user assign a vector, indicate that function should be expecting a vector
+  mymean <- sum(x_vec)/n
+  return(mymean)
+}
+
+calc_mean2(test_vec_w_NA, na.rm=TRUE)
+
+## and here's a proof of concept 4fun
+calc_mean2 <- function(x_vec, no_more_na="apples") {
+  if(no_more_na=="pears") { #double equal sign is a logical test, single equal sign is an assignnment
+    x_vec <- x_vec[!is.na(x_vec)]
+  }
+  n <- length(x_vec) # make user assign a vector, indicate that function should be expecting a vector
+  mymean <- sum(x_vec)/n
+  return(mymean)
+}
+
+calc_mean2(test_vec_w_NA, no_more_na="blueberries") #R is looking for "pears" to remove NAs, so because it doesn't see that it moves on from the no_more_na argument
+```
+
+```{r}
+library(tidyverse)
+data(iris)
+iris_mean <- iris %>%
+  janitor::clean_names() %>%
+  group_by(species) %>%
+  summarize(mean_sepal_w = calc_mean2(sepal_width))
+```
+
+# Why loops?
+
+Sometimes you want to do a thing many times, i..e iterate. Loops are one way to do this, especially if you have a cevtor of values and you want to calculate something based on each value. 
+```{r}
+times <- 10
+
+for(i in 1:10) {
+  print(i+1)
+}
+
+for(j in 1:times) {
+  x <- x + j
+  print(x)
+}
+
+for(k in 1:times) {
+  print("hello world!")
+}
+```
+
+A standard die roll has equal chances to land on each of its six sides. Use sample() to simulate this.
+```{r}
+die_rolls <- data.frame(rolls=sample(x=1:6, size=1000, replace=TRUE))
+
+ggplot(data.frame(die_rolls), aes(x=rolls)) +
+  geom_histogram(bins=6)
+```
+
+OK, now let's use a loop to make a bunch of simulations, each of 20 rolls, and calculate the mean of each.
+```{r}
+sims <- 100000
+mean_results <- vector('numeric', length=sims)
+for(i in 1:sims){
+  rolls_vec <- sample(1:6, size=20, replace=TRUE) 
+  rolls_mean <- calc_mean2(rolls_vec)
+  mean_results[i] <- rolls_mean #"at position i results vector, store mean of rolls_vec"
+}
+
+results_df <- data.frame(sim=1:sims,
+                         mean=mean_results)
+
+ggplot(results_df, aes(x=mean)) +
+  geom_histogram(alpha=0.8, fill='darkred') +
+  theme_minimal()
+
+```
+
+### If die rolls are uniformly distributed, why do we see a normal distribution here?
+
+## Central Limit Theorem (yay)!
+
